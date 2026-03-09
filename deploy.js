@@ -14,28 +14,52 @@ export async function findDestroyTargets(name, region, runtimeFilter) {
     if (!runtimeFilter || runtimeFilter === "lambda") {
         try {
             const { LambdaClient, GetFunctionCommand, GetFunctionUrlConfigCommand } = await import("@aws-sdk/client-lambda");
+            const { IAMClient, GetRoleCommand } = await import("@aws-sdk/client-iam");
             const client = new LambdaClient({ region });
-            await client.send(new GetFunctionCommand({ FunctionName: name }));
+            const iam = new IAMClient({ region });
+            const roleName = `cors-prxy-${name}-role`;
+            let hasFunction = false;
             let urlInfo = "";
+            let hasIamRole = false;
             try {
-                const urlResp = await client.send(new GetFunctionUrlConfigCommand({ FunctionName: name }));
-                urlInfo = urlResp.FunctionUrl ? ` + Function URL` : "";
+                await client.send(new GetFunctionCommand({ FunctionName: name }));
+                hasFunction = true;
+                try {
+                    const urlResp = await client.send(new GetFunctionUrlConfigCommand({ FunctionName: name }));
+                    urlInfo = urlResp.FunctionUrl ? ` + Function URL` : "";
+                }
+                catch { }
             }
-            catch { }
-            targets.push({
-                runtime: "lambda",
-                name,
-                detail: `Lambda: ${name} (${region})${urlInfo} + IAM role`,
-            });
+            catch (err) {
+                if (err.name !== "ResourceNotFoundException")
+                    throw err;
+            }
+            try {
+                await iam.send(new GetRoleCommand({ RoleName: roleName }));
+                hasIamRole = true;
+            }
+            catch (err) {
+                if (err.name !== "NoSuchEntityException")
+                    throw err;
+            }
+            if (hasFunction || hasIamRole) {
+                const parts = [];
+                if (hasFunction)
+                    parts.push(`Lambda: ${name} (${region})${urlInfo}`);
+                if (hasIamRole)
+                    parts.push(`IAM role: ${roleName}`);
+                targets.push({
+                    runtime: "lambda",
+                    name,
+                    detail: parts.join(" + "),
+                });
+            }
         }
         catch (err) {
-            const errName = err.name;
-            if (errName !== "ResourceNotFoundException") {
-                const msg = err instanceof Error ? err.message : String(err);
-                if (!msg.includes("expired") && !msg.includes("credentials") && !msg.includes("Could not load")) {
-                    if (runtimeFilter === "lambda")
-                        throw err;
-                }
+            const msg = err instanceof Error ? err.message : String(err);
+            if (!msg.includes("expired") && !msg.includes("credentials") && !msg.includes("Could not load")) {
+                if (runtimeFilter === "lambda")
+                    throw err;
             }
         }
     }
