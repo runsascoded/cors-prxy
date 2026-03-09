@@ -190,7 +190,7 @@ export async function deploy(config) {
             AuthType: "NONE",
             Cors: {
                 AllowOrigins: config.cors.origins,
-                AllowMethods: ["GET", "HEAD", "OPTIONS"],
+                AllowMethods: ["GET", "HEAD"],
                 MaxAge: config.cors.maxAge,
             },
         }));
