@@ -40,3 +40,12 @@ Discovers all `cors-prxy`-tagged resources (via `cors-prxy ls`) and cross-refere
 - CF cleanup: Worker name is deterministic (`cors-prxy-{name}`), delete via API
 - `destroy` should confirm before deleting (unless `--yes`), showing what will be removed
 - `destroy` should be idempotent — silently skip resources that don't exist
+
+## Implementation (done)
+
+- `findDestroyTargets()` in `deploy.ts`: probes both runtimes for the named proxy, returns `DestroyTarget[]` with runtime, name, and human-readable detail
+- `destroyByRuntime()` in `deploy.ts`: dispatches to `destroyCfByName()` or `destroyLambdaByName()`
+- `destroyCfByName()` in `deploy-cf.ts`: destroy by name without full config
+- `destroyLambdaByName()` in `deploy-lambda.ts`: destroy by name + region without full config
+- CLI `destroy` updated: `--name` (no config needed), `--runtime` filter, `--region` for Lambda, shows discovery summary before confirming
+- `gc` subcommand deferred (nice-to-have per spec)

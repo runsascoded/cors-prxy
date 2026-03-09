@@ -171,9 +171,13 @@ export async function deployCf(config: CorsProxyConfig): Promise<DeployResult> {
 }
 
 export async function destroyCf(config: CorsProxyConfig): Promise<void> {
+  await destroyCfByName(config.name, config)
+}
+
+export async function destroyCfByName(name: string, config?: CorsProxyConfig): Promise<void> {
   const { apiToken } = getCfAuth()
   const accountId = await resolveAccountId(apiToken, config)
-  const workerName = getWorkerName(config)
+  const workerName = config?.cloudflare?.workerName ?? `cors-prxy-${name}`
 
   console.log(`Deleting Cloudflare Worker: ${workerName}`)
   const resp = await cfApi(
