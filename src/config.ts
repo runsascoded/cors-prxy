@@ -31,6 +31,12 @@ export interface CorsProxyConfig {
   cors: CorsConfig
   cache: CacheConfig
   tags: Record<string, string>
+  /** Allowed HTTP methods. Default: ["GET", "HEAD"]. OPTIONS is always handled. */
+  methods?: string[]
+  /** Request headers to forward upstream (lowercase). Default: [] */
+  forwardHeaders?: string[]
+  /** How the target URL is specified. "query" = ?url=, "path" = /<host>/<path> */
+  urlMode?: "query" | "path"
 }
 
 const DEFAULTS: { region: string; rateLimit: RateLimitConfig; cors: CorsConfig; cache: CacheConfig; tags: Record<string, string> } = {
@@ -100,5 +106,8 @@ export async function loadConfig(path?: string): Promise<CorsProxyConfig> {
     cors: { ...DEFAULTS.cors, ...(parsed.cors as Partial<CorsConfig> | undefined) },
     cache: { ...DEFAULTS.cache, ...(parsed.cache as Partial<CacheConfig> | undefined) },
     tags: { ...DEFAULTS.tags, ...(parsed.tags as Record<string, string> | undefined) },
+    methods: parsed.methods as string[] | undefined,
+    forwardHeaders: parsed.forwardHeaders as string[] | undefined,
+    urlMode: parsed.urlMode as "query" | "path" | undefined,
   }
 }

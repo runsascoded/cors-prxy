@@ -56,6 +56,6 @@ describe("compactAllowlist", () => {
       "github.com",
       { domain: "api.example.com", paths: ["/v1/*"] },
     ]
-    expect(compactAllowlist(rules)).toBe("github.com,api.example.com")
+    expect(compactAllowlist(rules)).toBe("github.com api.example.com")
   })
 })
