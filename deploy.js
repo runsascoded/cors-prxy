@@ -188,11 +188,6 @@ export async function deploy(config) {
         const urlResp = await lambda.send(new CreateFunctionUrlConfigCommand({
             FunctionName: functionName,
             AuthType: "NONE",
-            Cors: {
-                AllowOrigins: config.cors.origins,
-                AllowMethods: ["GET", "HEAD"],
-                MaxAge: config.cors.maxAge,
-            },
         }));
         endpoint = urlResp.FunctionUrl;
         // Add public invoke permission

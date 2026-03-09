@@ -1,6 +1,6 @@
 {
   "name": "cors-prxy",
-  "version": "0.1.0-dist.17db8cc",
+  "version": "0.1.0-dist.eb7da7c",
   "description": "Minimal, security-focused Lambda CORS proxy — deploy per-project allowlisted trampolines via CLI or GitHub Actions",
   "type": "module",
   "bin": {
