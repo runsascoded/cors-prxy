@@ -78,11 +78,11 @@ async function listLambdaProxies(regions) {
 }
 async function listCfProxies() {
     const apiToken = process.env.CLOUDFLARE_API_TOKEN;
-    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-    if (!apiToken || !accountId)
+    if (!apiToken)
         return [];
     try {
-        const { listCfWorkers } = await import("./deploy-cf.js");
+        const { resolveAccountId, listCfWorkers } = await import("./deploy-cf.js");
+        const accountId = await resolveAccountId(apiToken);
         const workers = await listCfWorkers(accountId, apiToken);
         return workers.map(w => ({
             name: w.name,

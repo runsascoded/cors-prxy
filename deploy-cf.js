@@ -8,13 +8,24 @@ function getCfAuth() {
     }
     return { apiToken };
 }
-function getCfAccountId(config) {
-    const accountId = config.cloudflare?.accountId ?? process.env.CLOUDFLARE_ACCOUNT_ID;
-    if (!accountId) {
-        throw new Error("Cloudflare account ID is required. Set it in config (cloudflare.accountId) " +
-            "or via CLOUDFLARE_ACCOUNT_ID env var.");
+export async function resolveAccountId(apiToken, config) {
+    const explicit = config?.cloudflare?.accountId ?? process.env.CLOUDFLARE_ACCOUNT_ID;
+    if (explicit)
+        return explicit;
+    // Infer from API token
+    const resp = await cfApi("/accounts", apiToken);
+    if (!resp.success || !resp.result) {
+        throw new Error("Failed to list Cloudflare accounts. Set CLOUDFLARE_ACCOUNT_ID or cloudflare.accountId in config.");
     }
-    return accountId;
+    const accounts = resp.result;
+    if (accounts.length === 0) {
+        throw new Error("No Cloudflare accounts found for this API token.");
+    }
+    if (accounts.length === 1) {
+        return accounts[0].id;
+    }
+    const list = accounts.map(a => `  ${a.id}  ${a.name}`).join("\n");
+    throw new Error(`Multiple Cloudflare accounts found. Set CLOUDFLARE_ACCOUNT_ID or cloudflare.accountId:\n${list}`);
 }
 function getWorkerName(config) {
     return config.cloudflare?.workerName ?? `cors-prxy-${config.name}`;
@@ -27,6 +38,14 @@ async function cfApi(path, apiToken, opts = {}) {
             ...opts.headers,
         },
     });
+    const contentType = resp.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+        const text = await resp.text();
+        if (!resp.ok) {
+            throw new Error(`CF API ${resp.status}: ${text.slice(0, 200)}`);
+        }
+        return { success: resp.ok, result: undefined, errors: [] };
+    }
     return resp.json();
 }
 function loadCfBundle() {
@@ -35,7 +54,7 @@ function loadCfBundle() {
 }
 export async function deployCf(config) {
     const { apiToken } = getCfAuth();
-    const accountId = getCfAccountId(config);
+    const accountId = await resolveAccountId(apiToken, config);
     const workerName = getWorkerName(config);
     // Load pre-built worker bundle
     let bundleCode = loadCfBundle();
@@ -99,7 +118,7 @@ export async function deployCf(config) {
 }
 export async function destroyCf(config) {
     const { apiToken } = getCfAuth();
-    const accountId = getCfAccountId(config);
+    const accountId = await resolveAccountId(apiToken, config);
     const workerName = getWorkerName(config);
     console.log(`Deleting Cloudflare Worker: ${workerName}`);
     const resp = await cfApi(`/accounts/${accountId}/workers/scripts/${workerName}`, apiToken, { method: "DELETE" });
