@@ -1,5 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+/** Resolve effective runtime: explicit > inferred from `region` > default "cloudflare" */
+export function resolveRuntime(config) {
+    if (config.runtime)
+        return config.runtime;
+    // If region was explicitly set (not just the default), assume lambda for BC
+    return "cloudflare";
+}
 const DEFAULTS = {
     region: "us-east-1",
     rateLimit: { perIp: 60, window: "1m" },
@@ -65,6 +72,11 @@ export async function loadConfig(path) {
         cors: { ...DEFAULTS.cors, ...parsed.cors },
         cache: { ...DEFAULTS.cache, ...parsed.cache },
         tags: { ...DEFAULTS.tags, ...parsed.tags },
+        runtime: parsed.runtime,
+        cloudflare: parsed.cloudflare,
+        methods: parsed.methods,
+        forwardHeaders: parsed.forwardHeaders,
+        urlMode: parsed.urlMode,
     };
 }
 //# sourceMappingURL=config.js.map

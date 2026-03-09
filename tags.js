@@ -1,7 +1,6 @@
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { LambdaClient, ListFunctionsCommand, ListTagsCommand, GetFunctionUrlConfigCommand, } from "@aws-sdk/client-lambda";
 import { compactAllowlist } from "./allowlist.js";
 function getPackageVersion() {
     try {
@@ -13,13 +12,11 @@ function getPackageVersion() {
     }
 }
 function detectRepo() {
-    // GHA context
     if (process.env.GITHUB_REPOSITORY) {
         return process.env.GITHUB_REPOSITORY;
     }
     try {
         const remote = execSync("git remote get-url origin", { encoding: "utf-8" }).trim();
-        // Convert git@github.com:user/repo.git or https://github.com/user/repo.git -> user/repo
         return remote
             .replace(/\.git$/, "")
             .replace(/^git@github\.com:/, "")
@@ -41,7 +38,8 @@ export function buildTags(config) {
         tags["cors-prxy:repo"] = repo;
     return { ...tags, ...config.tags };
 }
-export async function listProxies(regions) {
+async function listLambdaProxies(regions) {
+    const { LambdaClient, ListFunctionsCommand, ListTagsCommand, GetFunctionUrlConfigCommand, } = await import("@aws-sdk/client-lambda");
     const results = [];
     for (const region of regions) {
         const client = new LambdaClient({ region });
@@ -66,6 +64,7 @@ export async function listProxies(regions) {
                 }
                 results.push({
                     name: tags["cors-prxy:name"] ?? fn.FunctionName,
+                    runtime: "lambda",
                     endpoint,
                     allow: tags["cors-prxy:allow"] ?? "",
                     repo: tags["cors-prxy:repo"] ?? "",
@@ -74,6 +73,52 @@ export async function listProxies(regions) {
                 });
             }
         } while (marker);
+    }
+    return results;
+}
+async function listCfProxies() {
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    if (!apiToken || !accountId)
+        return [];
+    try {
+        const { listCfWorkers } = await import("./deploy-cf.js");
+        const workers = await listCfWorkers(accountId, apiToken);
+        return workers.map(w => ({
+            name: w.name,
+            runtime: "cloudflare",
+            endpoint: w.endpoint,
+            allow: "",
+            repo: "",
+            region: "global",
+            version: "",
+        }));
+    }
+    catch {
+        return [];
+    }
+}
+export async function listProxies(regions, runtimeFilter) {
+    const results = [];
+    if (!runtimeFilter || runtimeFilter === "lambda") {
+        try {
+            results.push(...await listLambdaProxies(regions));
+        }
+        catch (err) {
+            if (runtimeFilter === "lambda")
+                throw err;
+            // When scanning both runtimes, don't fail if AWS creds are missing/expired
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes("expired") || msg.includes("credentials") || msg.includes("Could not load")) {
+                console.error(`Skipping Lambda (AWS credentials unavailable)`);
+            }
+            else {
+                throw err;
+            }
+        }
+    }
+    if (!runtimeFilter || runtimeFilter === "cloudflare") {
+        results.push(...await listCfProxies());
     }
     return results;
 }

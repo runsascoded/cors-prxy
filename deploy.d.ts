@@ -1,8 +1,5 @@
 import type { CorsProxyConfig } from "./config.js";
-export interface DeployResult {
-    functionName: string;
-    endpoint: string;
-    created: boolean;
-}
+import type { DeployResult } from "./deploy-lambda.js";
+export type { DeployResult };
 export declare function deploy(config: CorsProxyConfig): Promise<DeployResult>;
 export declare function destroy(config: CorsProxyConfig): Promise<void>;

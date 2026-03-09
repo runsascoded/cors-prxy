@@ -4,6 +4,8 @@ export interface ProxyRequest {
     url: string;
     origin?: string;
     ip?: string;
+    body?: string | Buffer | ReadableStream | null;
+    headers?: Record<string, string>;
 }
 export interface ProxyResponse {
     status: number;
