@@ -1,0 +1,55 @@
+name: "cors-prxy"
+description: "Deploy a security-focused Lambda CORS proxy"
+
+inputs:
+  config:
+    description: "Path to config file"
+    required: false
+    default: ".cors-prxy.json"
+  aws-role-arn:
+    description: "AWS IAM role ARN for OIDC authentication"
+    required: false
+  aws-access-key-id:
+    description: "AWS access key ID (alternative to OIDC)"
+    required: false
+  aws-secret-access-key:
+    description: "AWS secret access key (alternative to OIDC)"
+    required: false
+
+outputs:
+  endpoint-url:
+    description: "The deployed proxy endpoint URL"
+    value: ${{ steps.deploy.outputs.endpoint-url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - name: Configure AWS credentials (OIDC)
+      if: inputs.aws-role-arn != ''
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        aws-region: us-east-1
+
+    - name: Configure AWS credentials (static)
+      if: inputs.aws-role-arn == '' && inputs.aws-access-key-id != ''
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: us-east-1
+
+    - name: Deploy proxy
+      id: deploy
+      shell: bash
+      run: |
+        npx cors-prxy deploy -c "${{ inputs.config }}" | tee /tmp/cors-prxy-output.txt
+        ENDPOINT=$(grep '^Endpoint:' /tmp/cors-prxy-output.txt | awk '{print $2}')
+        echo "endpoint-url=$ENDPOINT" >> "$GITHUB_OUTPUT"
+        echo "### CORS Proxy Deployed" >> "$GITHUB_STEP_SUMMARY"
+        echo "Endpoint: \`$ENDPOINT\`" >> "$GITHUB_STEP_SUMMARY"
