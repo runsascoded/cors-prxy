@@ -14,26 +14,43 @@ function getCfAuth(): { apiToken: string } {
   return { apiToken }
 }
 
-function getCfAccountId(config: CorsProxyConfig): string {
-  const accountId = config.cloudflare?.accountId ?? process.env.CLOUDFLARE_ACCOUNT_ID
-  if (!accountId) {
-    throw new Error(
-      "Cloudflare account ID is required. Set it in config (cloudflare.accountId) " +
-      "or via CLOUDFLARE_ACCOUNT_ID env var."
-    )
+export async function resolveAccountId(apiToken: string, config?: CorsProxyConfig): Promise<string> {
+  const explicit = config?.cloudflare?.accountId ?? process.env.CLOUDFLARE_ACCOUNT_ID
+  if (explicit) return explicit
+
+  // Infer from API token
+  const resp = await cfApi("/accounts", apiToken)
+  if (!resp.success || !resp.result) {
+    throw new Error("Failed to list Cloudflare accounts. Set CLOUDFLARE_ACCOUNT_ID or cloudflare.accountId in config.")
   }
-  return accountId
+  const accounts = resp.result as unknown as Array<{ id: string; name: string }>
+  if (accounts.length === 0) {
+    throw new Error("No Cloudflare accounts found for this API token.")
+  }
+  if (accounts.length === 1) {
+    return accounts[0].id
+  }
+  const list = accounts.map(a => `  ${a.id}  ${a.name}`).join("\n")
+  throw new Error(
+    `Multiple Cloudflare accounts found. Set CLOUDFLARE_ACCOUNT_ID or cloudflare.accountId:\n${list}`
+  )
 }
 
 function getWorkerName(config: CorsProxyConfig): string {
   return config.cloudflare?.workerName ?? `cors-prxy-${config.name}`
 }
 
+interface CfApiResponse {
+  success: boolean
+  result?: Record<string, unknown>
+  errors?: Array<{ message: string }>
+}
+
 async function cfApi(
   path: string,
   apiToken: string,
   opts: RequestInit = {},
-): Promise<{ success: boolean; result?: Record<string, unknown>; errors?: Array<{ message: string }> }> {
+): Promise<CfApiResponse> {
   const resp = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
     ...opts,
     headers: {
@@ -41,7 +58,15 @@ async function cfApi(
       ...opts.headers as Record<string, string>,
     },
   })
-  return resp.json() as Promise<{ success: boolean; result?: Record<string, unknown>; errors?: Array<{ message: string }> }>
+  const contentType = resp.headers.get("content-type") ?? ""
+  if (!contentType.includes("application/json")) {
+    const text = await resp.text()
+    if (!resp.ok) {
+      throw new Error(`CF API ${resp.status}: ${text.slice(0, 200)}`)
+    }
+    return { success: resp.ok, result: undefined, errors: [] }
+  }
+  return resp.json() as Promise<CfApiResponse>
 }
 
 function loadCfBundle(): string {
@@ -51,7 +76,7 @@ function loadCfBundle(): string {
 
 export async function deployCf(config: CorsProxyConfig): Promise<DeployResult> {
   const { apiToken } = getCfAuth()
-  const accountId = getCfAccountId(config)
+  const accountId = await resolveAccountId(apiToken, config)
   const workerName = getWorkerName(config)
 
   // Load pre-built worker bundle
@@ -147,7 +172,7 @@ export async function deployCf(config: CorsProxyConfig): Promise<DeployResult> {
 
 export async function destroyCf(config: CorsProxyConfig): Promise<void> {
   const { apiToken } = getCfAuth()
-  const accountId = getCfAccountId(config)
+  const accountId = await resolveAccountId(apiToken, config)
   const workerName = getWorkerName(config)
 
   console.log(`Deleting Cloudflare Worker: ${workerName}`)
