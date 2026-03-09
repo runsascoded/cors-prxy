@@ -125,17 +125,41 @@ program
 });
 program
     .command("destroy")
-    .description("Remove deployed proxy")
+    .description("Remove deployed proxy (searches all runtimes by default)")
     .option("-c, --config <path>", "Config file path", ".cors-prxy.json")
+    .option("-n, --name <name>", "Proxy name (no config file needed)")
+    .option("--runtime <runtime>", "Only destroy specific runtime (lambda, cloudflare)")
+    .option("--region <region>", "AWS region for Lambda lookup", "us-east-1")
     .option("-y, --yes", "Skip confirmation")
     .action(async (opts) => {
-    const config = await loadConfig(opts.config);
-    const runtime = resolveRuntime(config);
+    const { findDestroyTargets, destroyByRuntime } = await import("./deploy.js");
+    const runtimeFilter = opts.runtime;
+    let name;
+    let region;
+    let config;
+    if (opts.name) {
+        name = opts.name;
+        region = opts.region;
+    }
+    else {
+        config = await loadConfig(opts.config);
+        name = config.name;
+        region = config.region;
+    }
+    const targets = await findDestroyTargets(name, region, runtimeFilter);
+    if (targets.length === 0) {
+        console.log(`No resources found for "${name}".`);
+        return;
+    }
+    console.log(`Found resources for "${name}":`);
+    for (const t of targets) {
+        console.log(`  ${t.detail}`);
+    }
     if (!opts.yes) {
         const readline = await import("node:readline");
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         const answer = await new Promise(resolve => {
-            rl.question(`Destroy proxy "${config.name}" (${runtime})? [y/N] `, resolve);
+            rl.question(`\nDestroy all? [y/N] `, resolve);
         });
         rl.close();
         if (answer.toLowerCase() !== "y") {
@@ -143,8 +167,9 @@ program
             return;
         }
     }
-    const { destroy } = await import("./deploy.js");
-    await destroy(config);
+    for (const target of targets) {
+        await destroyByRuntime(target.runtime, target.name, config);
+    }
     console.log("Done.");
 });
 program

@@ -117,9 +117,12 @@ export async function deployCf(config) {
     return { functionName: workerName, endpoint, created };
 }
 export async function destroyCf(config) {
+    await destroyCfByName(config.name, config);
+}
+export async function destroyCfByName(name, config) {
     const { apiToken } = getCfAuth();
     const accountId = await resolveAccountId(apiToken, config);
-    const workerName = getWorkerName(config);
+    const workerName = config?.cloudflare?.workerName ?? `cors-prxy-${name}`;
     console.log(`Deleting Cloudflare Worker: ${workerName}`);
     const resp = await cfApi(`/accounts/${accountId}/workers/scripts/${workerName}`, apiToken, { method: "DELETE" });
     if (!resp.success) {

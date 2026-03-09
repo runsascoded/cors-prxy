@@ -210,12 +210,15 @@ export async function deployLambda(config) {
     return { functionName, endpoint, created };
 }
 export async function destroyLambda(config) {
+    await destroyLambdaByName(config.name, config.region);
+}
+export async function destroyLambdaByName(name, region) {
     const { DeleteFunctionCommand, DeleteFunctionUrlConfigCommand } = await import("@aws-sdk/client-lambda");
     const { DeleteRoleCommand, DeleteRolePolicyCommand } = await import("@aws-sdk/client-iam");
-    const lambda = new LambdaClient({ region: config.region });
-    const iam = new IAMClient({ region: config.region });
-    const functionName = config.name;
-    const roleName = `cors-prxy-${config.name}-role`;
+    const lambda = new LambdaClient({ region });
+    const iam = new IAMClient({ region });
+    const functionName = name;
+    const roleName = `cors-prxy-${name}-role`;
     // Delete Function URL
     try {
         await lambda.send(new DeleteFunctionUrlConfigCommand({ FunctionName: functionName }));
