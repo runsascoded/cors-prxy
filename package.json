@@ -1,20 +1,10 @@
 {
   "name": "cors-prxy",
-  "version": "0.1.0",
-  "description": "Minimal, security-focused Lambda CORS proxy \u2014 deploy per-project allowlisted trampolines via CLI or GitHub Actions",
+  "version": "0.1.0-dist.c38a4d4",
+  "description": "Minimal, security-focused Lambda CORS proxy — deploy per-project allowlisted trampolines via CLI or GitHub Actions",
   "type": "module",
   "bin": {
-    "cors-prxy": "./dist/cli.js"
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc && node scripts/bundle-lambda.js",
-    "bundle": "node scripts/bundle-lambda.js",
-    "clean": "rm -rf node_modules/.vite dist",
-    "test": "vitest run",
-    "prepublishOnly": "pnpm build"
+    "cors-prxy": "./cli.js"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch-logs": "^3.700.0",
@@ -23,12 +13,6 @@
     "commander": "^13.0.0",
     "esbuild": "^0.24.0",
     "picomatch": "^4.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/picomatch": "^3.0.0",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
   },
   "engines": {
     "node": ">=20"
