@@ -37,5 +37,7 @@ function matchDomainPaths(hostname: string, pathname: string, rule: AllowRuleObj
 }
 
 export function compactAllowlist(rules: AllowRule[]): string {
-  return rules.map(r => typeof r === "string" ? r : r.domain).join(",")
+  // AWS tag values only allow [\p{L}\p{Z}\p{N}_.:/=+\-@]
+  // Use space as separator (instead of comma), `@` for `*`
+  return rules.map(r => typeof r === "string" ? r : r.domain).join(" ").replaceAll("*", "@")
 }
