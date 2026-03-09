@@ -246,7 +246,7 @@ export async function deploy(config: CorsProxyConfig): Promise<DeployResult> {
       AuthType: "NONE",
       Cors: {
         AllowOrigins: config.cors.origins,
-        AllowMethods: ["GET", "HEAD", "OPTIONS"],
+        AllowMethods: ["GET", "HEAD"],
         MaxAge: config.cors.maxAge,
       },
     }))
