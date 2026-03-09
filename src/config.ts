@@ -23,6 +23,15 @@ export interface CacheConfig {
   maxSize: number
 }
 
+export type Runtime = "cloudflare" | "lambda"
+
+export interface CloudflareConfig {
+  accountId?: string
+  workerName?: string
+  route?: string
+  compatibilityDate?: string
+}
+
 export interface CorsProxyConfig {
   name: string
   region: string
@@ -31,12 +40,23 @@ export interface CorsProxyConfig {
   cors: CorsConfig
   cache: CacheConfig
   tags: Record<string, string>
+  /** Deployment runtime. Default: "cloudflare" (or "lambda" if `region` is set). */
+  runtime?: Runtime
+  /** Cloudflare-specific config. */
+  cloudflare?: CloudflareConfig
   /** Allowed HTTP methods. Default: ["GET", "HEAD"]. OPTIONS is always handled. */
   methods?: string[]
   /** Request headers to forward upstream (lowercase). Default: [] */
   forwardHeaders?: string[]
   /** How the target URL is specified. "query" = ?url=, "path" = /<host>/<path> */
   urlMode?: "query" | "path"
+}
+
+/** Resolve effective runtime: explicit > inferred from `region` > default "cloudflare" */
+export function resolveRuntime(config: CorsProxyConfig): Runtime {
+  if (config.runtime) return config.runtime
+  // If region was explicitly set (not just the default), assume lambda for BC
+  return "cloudflare"
 }
 
 const DEFAULTS: { region: string; rateLimit: RateLimitConfig; cors: CorsConfig; cache: CacheConfig; tags: Record<string, string> } = {
@@ -106,6 +126,8 @@ export async function loadConfig(path?: string): Promise<CorsProxyConfig> {
     cors: { ...DEFAULTS.cors, ...(parsed.cors as Partial<CorsConfig> | undefined) },
     cache: { ...DEFAULTS.cache, ...(parsed.cache as Partial<CacheConfig> | undefined) },
     tags: { ...DEFAULTS.tags, ...(parsed.tags as Record<string, string> | undefined) },
+    runtime: parsed.runtime as Runtime | undefined,
+    cloudflare: parsed.cloudflare as CloudflareConfig | undefined,
     methods: parsed.methods as string[] | undefined,
     forwardHeaders: parsed.forwardHeaders as string[] | undefined,
     urlMode: parsed.urlMode as "query" | "path" | undefined,

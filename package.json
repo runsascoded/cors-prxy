@@ -10,8 +10,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && node scripts/bundle-lambda.js",
-    "bundle": "node scripts/bundle-lambda.js",
+    "build": "tsc && node scripts/bundle-lambda.js && node scripts/bundle-cloudflare.js",
+    "bundle": "node scripts/bundle-lambda.js && node scripts/bundle-cloudflare.js",
     "clean": "rm -rf node_modules/.vite dist",
     "test": "vitest run",
     "prepublishOnly": "pnpm build"
